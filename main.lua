@@ -25,9 +25,20 @@ function love.load()
         jumping = false,
         jumpSpeed = 0,
     }
-    VerticalBullets = {}
-    HorizontalBullets = {}
-    GuidedBullets = {}
+    Bullets = {}
+
+    JumpSound = love.audio.newSource("assets/beep.wav", "static")
+end
+
+function CreateBullet(x, y, dx, dy)
+    table.insert(Bullets, {
+        width = 10,
+        height = 10,
+        x = x,
+        y = y,
+        dx = dx,
+        dy = dy,
+    })
 end
 
 function love.keypressed(key)
@@ -36,119 +47,46 @@ function love.keypressed(key)
     end
 end
 
-function love.draw()
-    if GameOver then
-        love.graphics.setColor(255, 255, 255)
-        love.graphics.print("Game Over", WindowWidth / 2 - 50, WindowHeight / 2 - 10)
-        return
-    else
-        -- Ground
-        love.graphics.setColor(0, 255, 0)
-        love.graphics.rectangle("fill", Ground.x, Ground.y, Ground.width, Ground.height)
-
-        -- Player
-        love.graphics.setColor(255, 255, 255)
-        love.graphics.rectangle("fill", Player.x, Player.y, Player.width, Player.height)
-
-        -- Bullets
-        love.graphics.setColor(255, 0, 0)
-        -- VerticalBullets
-        if love.math.random(1, 1000) < 8 then
-            table.insert(VerticalBullets, {
-                width = 10,
-                height = 10,
-                x = love.math.random(0, WindowWidth - 10),
-                y = 0,
-                speed = love.math.random(100, 200),
-            })
-        end
-
-        for i, bullet in ipairs(VerticalBullets) do
-            love.graphics.rectangle("fill", bullet.x, bullet.y, bullet.width, bullet.height)
-        end
-
-        -- HorizontalBullets left to right
-        if love.math.random(1, 1000) < 2 then
-            table.insert(HorizontalBullets, {
-                width = 10,
-                height = 10,
-                x = 0,
-                y = love.math.random(WindowHeight-GroundHeight-Player.height, WindowHeight - GroundHeight - 10),
-                speed = love.math.random(100, 200),
-            })
-        end
-
-        for i, bullet in ipairs(HorizontalBullets) do
-            love.graphics.rectangle("fill", bullet.x, bullet.y, bullet.width, bullet.height)
-        end
-
-        -- HorizontalBullets right to left
-        if love.math.random(1, 1000) < 2 then
-            table.insert(HorizontalBullets, {
-                width = 10,
-                height = 10,
-                x = WindowWidth,
-                y = love.math.random(WindowHeight-GroundHeight-Player.height, WindowHeight - GroundHeight - 10),
-                speed = -love.math.random(100, 200),
-            })
-        end
-
-        for i, bullet in ipairs(HorizontalBullets) do
-            love.graphics.rectangle("fill", bullet.x, bullet.y, bullet.width, bullet.height)
-        end
-
-        -- GuidedBullets
-        if love.math.random(1, 1000) < 5 then
-            table.insert(GuidedBullets, {
-                width = 10,
-                height = 10,
-                x = love.math.random(0, WindowWidth - 10),
-                y = 0,
-                speed = 100,
-                dx = 0,
-                dy = 0,
-            })
-        end
-
-        for i, bullet in ipairs(GuidedBullets) do
-            love.graphics.rectangle("fill", bullet.x, bullet.y, bullet.width, bullet.height)
-        end
-    end
-end
-
 function love.update(dt)
-    for i, bullet in ipairs(VerticalBullets) do
-        bullet.y = bullet.y + bullet.speed * dt
-        if bullet.y > WindowHeight then
-            table.remove(VerticalBullets, i)
-        end
-        if IsCollided(Player, bullet) then
-            GameOver = true
-        end
+
+    -- VerticalBullets
+    if love.math.random(1, 1000) < 8 then
+        speed = love.math.random(100, 200)
+        CreateBullet(love.math.random(0, WindowWidth - 10), 0, 0, speed)
     end
 
-    for i, bullet in ipairs(HorizontalBullets) do
-        bullet.x = bullet.x + bullet.speed * dt
-        if bullet.x > WindowWidth then
-            table.remove(HorizontalBullets, i)
+    -- HorizontalBullets
+    if love.math.random(1, 1000) < 3 then
+        speed = love.math.random(100, 200)
+        dx = love.math.random(-1, 1)
+        if dx == 0 then
+        x = 0
+        dx = 1
+        else
+            x = WindowWidth
         end
-        if IsCollided(Player, bullet) then
-            GameOver = true
-        end
+        dx = dx * speed
+        CreateBullet(x, love.math.random(WindowHeight-GroundHeight-Player.height, WindowHeight - GroundHeight - 10), dx, 0)
     end
 
-    for i, bullet in ipairs(GuidedBullets) do
-        if bullet.dx == 0 and bullet.dy == 0 then
-            bullet.dx = Player.x - bullet.x
-            bullet.dy = Player.y - bullet.y
-            local length = math.sqrt(bullet.dx * bullet.dx + bullet.dy * bullet.dy)
-            bullet.dx = bullet.dx / length
-            bullet.dy = bullet.dy / length
-        end
-        bullet.x = bullet.x + bullet.dx * bullet.speed * dt
-        bullet.y = bullet.y + bullet.dy * bullet.speed * dt
-        if bullet.y > WindowHeight then
-            table.remove(GuidedBullets, i)
+    -- GuidedBullets
+    if love.math.random(1, 1000) < 5 then
+        speed = love.math.random(100, 200)
+        x = love.math.random(0, WindowWidth - 10)
+        y = 0
+        dx = Player.x - x
+        dy = Player.y - y
+        length = math.sqrt(dx * dx + dy * dy)
+        dx = dx / length * speed
+        dy = dy / length * speed
+        CreateBullet(x, y, dx, dy)
+    end
+
+    for i, bullet in ipairs(Bullets) do
+        bullet.x = bullet.x + bullet.dx * dt
+        bullet.y = bullet.y + bullet.dy * dt
+        if bullet.y > WindowHeight or bullet.x < 0 or bullet.x > WindowWidth then
+            table.remove(Bullets, i)
         end
         if IsCollided(Player, bullet) then
             GameOver = true
@@ -162,6 +100,7 @@ function love.update(dt)
         Player.x = Player.x - 100 * dt
     end
     if love.keyboard.isDown("up") and not Player.jumping then
+        love.audio.play(JumpSound)
         Player.jumping = true
         Player.jumpSpeed = -400
     end
@@ -182,4 +121,26 @@ function IsCollided(a, b)
            b.x < a.x + a.width and
            a.y < b.y + b.height and
            b.y < a.y + a.height
+end
+
+function love.draw()
+    if GameOver then
+        love.graphics.setColor(255, 255, 255)
+        love.graphics.print("Game Over", WindowWidth / 2 - 50, WindowHeight / 2 - 10)
+        return
+    else
+        -- Ground
+        love.graphics.setColor(0, 255, 0)
+        love.graphics.rectangle("fill", Ground.x, Ground.y, Ground.width, Ground.height)
+
+        -- Player
+        love.graphics.setColor(255, 255, 255)
+        love.graphics.rectangle("fill", Player.x, Player.y, Player.width, Player.height)
+
+        -- Bullets
+        love.graphics.setColor(255, 0, 0)
+        for i, bullet in ipairs(Bullets) do
+            love.graphics.rectangle("fill", bullet.x, bullet.y, bullet.width, bullet.height)
+        end
+    end
 end
